@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Integer Game</title>
+<style>
+    body { 
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        background-color: #f0f4f8; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        height: 100vh; 
+        margin: 0; 
+    }
+    #game-container { 
+        background: white; 
+        padding: 40px; 
+        border-radius: 12px; 
+        box-shadow: 0 8px 24px rgba(0,0,0,0.1); 
+        text-align: center; 
+        max-width: 450px; 
+        width: 90%; 
+    }
+    h1 { 
+        color: #2c3e50; 
+        margin-bottom: 20px; 
+        font-size: 28px; 
+    }
+    p {
+        color: #555;
+        line-height: 1.5;
+        margin-bottom: 30px;
+    }
+    .stats { 
+        display: flex; 
+        justify-content: space-between; 
+        margin-bottom: 20px; 
+        font-size: 20px; 
+        font-weight: bold; 
+        color: #34495e; 
+    }
+    #equation { 
+        font-size: 54px; 
+        font-weight: bold; 
+        margin: 20px 0; 
+        color: #2980b9; 
+        letter-spacing: 2px; 
+        min-height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    input[type="number"] { 
+        width: 100%; 
+        font-size: 28px; 
+        padding: 12px; 
+        text-align: center; 
+        border: 2px solid #bdc3c7; 
+        border-radius: 8px; 
+        margin-bottom: 15px; 
+        outline: none; 
+        transition: border-color 0.3s; 
+        box-sizing: border-box; 
+    }
+    input[type="number"]:focus { 
+        border-color: #3498db; 
+    }
+    button { 
+        background-color: #2ecc71; 
+        color: white; 
+        border: none; 
+        padding: 14px 24px; 
+        font-size: 20px; 
+        border-radius: 8px; 
+        cursor: pointer; 
+        transition: transform 0.1s, background-color 0.3s; 
+        width: 100%; 
+        font-weight: bold; 
+    }
+    button:active {
+        transform: scale(0.98);
+    }
+    button:hover { 
+        background-color: #27ae60; 
+    }
+    #start-screen, #game-screen, #end-screen { 
+        display: none; 
+    }
+    #start-screen.active, #game-screen.active, #end-screen.active { 
+        display: block; 
+        animation: fadeIn 0.4s ease-in;
+    }
+    .correct { color: #2ecc71; font-weight: bold; }
+    .wrong { color: #e74c3c; font-weight: bold; }
+    #feedback { 
+        height: 24px; 
+        margin-bottom: 15px; 
+        font-size: 18px; 
+    }
+    #start-btn, #restart-btn { 
+        background-color: #3498db; 
+    }
+    #start-btn:hover, #restart-btn:hover { 
+        background-color: #2980b9; 
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+    <h1>Integer Game</h1>
+    
+    <div id="start-screen" class="active">
+        <p>Solve as many equations as you can in <strong>60 seconds</strong>.</p>
+        <button id="start-btn">Start Game</button>
+    </div>
+
+    <div id="game-screen">
+        <div class="stats">
+            <div>Score: <span id="score">0</span></div>
+            <div style="color: #e74c3c;">Time: <span id="time">60</span>s</div>
+        </div>
+        <div id="equation"></div>
+        <div id="feedback"></div>
+        <input type="number" id="answer-input" placeholder="Type answer..." autocomplete="off">
+        <button id="submit-btn">Submit Answer</button>
+    </div>
+
+    <div id="end-screen">
+        <h2 style="color: #e74c3c; font-size: 36px; margin-bottom: 10px;">Time's Up!</h2>
+        <p style="font-size: 20px;">Your final score is: <strong id="final-score" style="font-size: 32px; color: #2c3e50; display: block; margin-top: 10px;">0</strong></p>
+        <button id="restart-btn">Play Again</button>
+    </div>
+</div>
+
+<script>
+    let score = 0;
+    let timeLeft = 60;
+    let timerInterval;
+    let currentAnswer = null;
+    let isPlaying = false;
+
+    const screens = {
+        start: document.getElementById('start-screen'),
+        game: document.getElementById('game-screen'),
+        end: document.getElementById('end-screen')
+    };
+    const els = {
+        score: document.getElementById('score'),
+        time: document.getElementById('time'),
+        equation: document.getElementById('equation'),
+        input: document.getElementById('answer-input'),
+        feedback: document.getElementById('feedback'),
+        finalScore: document.getElementById('final-score'),
+        startBtn: document.getElementById('start-btn'),
+        submitBtn: document.getElementById('submit-btn'),
+        restartBtn: document.getElementById('restart-btn')
+    };
+
+    function switchScreen(screenName) {
+        Object.values(screens).forEach(s => s.classList.remove('active'));
+        screens[screenName].classList.add('active');
+    }
+
+    function getRandomInteger(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function generateQuestion() {
+        const num1 = getRandomInteger(-100, 100);
+        const num2 = getRandomInteger(-100, 100);
+        const isAddition = Math.random() > 0.5;
+        
+        let operatorStr = isAddition ? '+' : '-';
+        // Wrap negative second numbers in parentheses so it looks like "5 - (-3)" instead of "5 - -3"
+        let num2Str = num2 < 0 ? `(${num2})` : num2;
+
+        els.equation.textContent = `${num1} ${operatorStr} ${num2Str}`;
+        currentAnswer = isAddition ? (num1 + num2) : (num1 - num2);
+        els.input.value = '';
+        els.input.focus();
+    }
+
+    function startGame() {
+        score = 0;
+        timeLeft = 60;
+        isPlaying = true;
+        els.score.textContent = score;
+        els.time.textContent = timeLeft;
+        els.feedback.textContent = '';
+        els.feedback.className = '';
+        
+        switchScreen('game');
+        generateQuestion();
+        
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            els.time.textContent = timeLeft;
+            if (timeLeft <= 0) {
+                endGame();
+            }
+        }, 1000);
+    }
+
+    function checkAnswer() {
+        if (!isPlaying) return;
+        
+        const userAnswer = parseInt(els.input.value, 10);
+        if (isNaN(userAnswer)) return;
+
+        if (userAnswer === currentAnswer) {
+            score++;
+            els.score.textContent = score;
+            els.feedback.textContent = 'Correct! +1 point';
+            els.feedback.className = 'correct';
+            generateQuestion();
+        } else {
+            els.feedback.textContent = 'Incorrect, try again!';
+            els.feedback.className = 'wrong';
+            els.input.value = '';
+            els.input.focus();
+        }
+    }
+
+    function endGame() {
+        isPlaying = false;
+        clearInterval(timerInterval);
+        els.finalScore.textContent = score;
+        switchScreen('end');
+    }
+
+    els.startBtn.addEventListener('click', startGame);
+    els.restartBtn.addEventListener('click', startGame);
+    els.submitBtn.addEventListener('click', checkAnswer);
+    
+    // Allow pressing "Enter" key to submit
+    els.input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') checkAnswer();
+    });
+</script>
+</body>
+</html>
